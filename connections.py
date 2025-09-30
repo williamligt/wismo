@@ -1,11 +1,8 @@
 import os
 from sqlalchemy import create_engine
-from dotenv import load_dotenv
 
 DB = "DAGSTER_IO"
 SCHEMA = "DS_DEV"
-
-load_dotenv()
 
 SF_ACCOUNT = os.getenv('SF_ACCOUNT')
 SF_USERNAME = os.getenv('SF_USERNAME')

@@ -10,7 +10,7 @@ import uvicorn
 app = FastAPI()
 
 @app.get("/email/{order_number}")
-async def get_email(order_number: str):
+def get_email(order_number: str):
     try:
         result = run(order_number)
         return result
