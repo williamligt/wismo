@@ -1,5 +1,6 @@
 from connections import DB, SCHEMA, sf_engine
 import pandas as pd
+from email_generator import generate_email
 
 def exists_in_original(order_number: str, conn) -> bool:
     """
@@ -111,3 +112,21 @@ def get_orders(order_number: str, original: bool, conn) -> list:
         for _, row in df.iterrows()
     ]
     return rows
+
+def run(order_number: str):
+    """
+    Return the row from DAGSTER_IO.DS_DEV.wismo_orders
+    where ORDERNUMBER equals the given order_number.
+    """
+    
+    with sf_engine().connect() as conn:
+        exists_in_original_flag = exists_in_original(order_number, conn)
+        orders = get_orders(order_number, exists_in_original_flag, conn)
+        cartons = get_cartons(order_number, exists_in_original_flag, conn)
+        skus = get_skus(order_number, exists_in_original_flag, conn)
+    
+    email = generate_email(order_number, orders, cartons, skus, exists_in_original_flag)
+    
+    return {
+        "email": email,
+    }
