@@ -4,11 +4,15 @@ from sqlalchemy import create_engine
 DB = "DAGSTER_IO"
 SCHEMA = "DS_DEV"
 
-SF_ACCOUNT = os.getenv('SF_ACCOUNT')
-SF_USERNAME = os.getenv('SF_USERNAME')
-SF_PASSWORD = os.getenv('SF_PASSWORD')
-SF_ROLE = os.getenv('SF_ROLE')
-SF_WAREHOUSE = os.getenv('SF_WAREHOUSE')
+# check that these env vars are set
+SF_ACCOUNT = os.getenv('sf-account')
+SF_USERNAME = os.getenv('sf-username')
+SF_PASSWORD = os.getenv('sf-password')
+SF_ROLE = os.getenv('sf-role')
+SF_WAREHOUSE = os.getenv('sf-warehouse')
+
+if not all([SF_ACCOUNT, SF_USERNAME, SF_PASSWORD, SF_ROLE]):
+    raise ValueError("Missing required Snowflake environment variables")
 
 # Create engine once and reuse
 _engine = None
