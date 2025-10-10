@@ -1,8 +1,14 @@
 import os
 from sqlalchemy import create_engine
+from pathlib import Path
 
 DB = "DAGSTER_IO"
 SCHEMA = "DS_DEV"
+
+# Load environment variables from .env file only in development
+if Path('.env').is_file():
+    from dotenv import load_dotenv
+    load_dotenv()
 
 # check that these env vars are set
 SF_ACCOUNT = os.getenv('sf-account')
