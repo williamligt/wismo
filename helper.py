@@ -1,8 +1,17 @@
+
+from typing import Tuple
 from connections import DB, SCHEMA, sf_engine
 import pandas as pd
-from email_generator import generate_email
+from custom_types import OrderNumber, Carton, Sku
 
-def exists_in_original(order_number: str, conn) -> bool:
+def process_none(value):
+    if value == "None":
+        return None
+    else:
+        return value
+
+
+def check_in_original(order_number: str, conn) -> bool:
     """
     Check if the row exists in DAGSTER_IO.DS_DEV.CHURN_READ_SQL
     where ORDERNUMBER equals the given order_number.
@@ -18,28 +27,74 @@ def exists_in_original(order_number: str, conn) -> bool:
 
     return not df.empty
 
-def get_cartons(order_number: str, original: bool, conn) -> list:
+def get_orders(order_number:int, conn) -> list:
+
+    # Compose the full table reference safely
+    full_table = f"{DB}.{SCHEMA}.{'wismo_orders'}"
+    sql = f"""
+        SELECT *
+        FROM {full_table}
+        WHERE postsplitordernumber = {order_number}
+    """
+
+    df = pd.read_sql(sql, conn)
+
+    if df.empty:
+        return []
+    
+    rows = [
+        {k: v for k, v in row.items()}
+        for _, row in df.iterrows()
+    ]
+
+    return rows
+
+def original_order_query(order_number, conn):
+    full_table = f"{DB}.{SCHEMA}.{'wismo_orders'}"
+    sql = f"""
+    SELECT *
+    FROM {full_table}
+    WHERE ORIGINALORDERNUMBER = {order_number}
+    """
+    df = pd.read_sql(sql, conn)
+
+    rows = [
+        {k: process_none(v) for k, v in row.items()}
+        for _, row in df.iterrows()
+    ]
+
+    return rows
+
+def get_skus(order_number, conn):
+    # Compose the full table reference safely
+    full_table = f"{DB}.{SCHEMA}.{'wismo_skus'}"
+    sql = f"""
+        SELECT *
+        FROM {full_table}
+        WHERE postsplitordernumber = {order_number}
+    """
+    df = pd.read_sql(sql, conn)
+
+    rows = [
+        {k: process_none(v) for k, v in row.items()}
+        for _, row in df.iterrows()
+    ]
+
+    return rows
+
+def get_cartons(order_number: str, conn) -> list:
     """
     Get the cartons from DAGSTER_IO.DS_DEV.CHURN_READ_SQL
     where ORDERNUMBER equals the given order_number.
     """
-    if original:
-        # Compose the full table reference safely
-        full_table = f"{DB}.{SCHEMA}.{'wismo_cartons'}"
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE originalordernumber = {order_number}
-        """
 
-    else:
-        # Compose the full table reference safely
-        full_table = f"{DB}.{SCHEMA}.{'wismo_cartons'}"
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE postsplitordernumber = {order_number}
-        """
+    # Compose the full table reference safely
+    full_table = f"{DB}.{SCHEMA}.{'wismo_cartons'}"
+    sql = f"""
+        SELECT *
+        FROM {full_table}
+        WHERE postsplitordernumber = {order_number}
+    """
 
     df = pd.read_sql(sql, conn)
 
@@ -47,86 +102,113 @@ def get_cartons(order_number: str, original: bool, conn) -> list:
         return []
     
     rows = [
-        {k: str(v) for k, v in row.items()}
+        {k: process_none(v) for k, v in row.items()}
         for _, row in df.iterrows()
     ]
 
     return rows
 
-def get_skus(order_number: str, original: bool, conn) -> list:
+def process_order_number(order_number: int, conn) -> list:
     """
-    Get the skus from DAGSTER_IO.DS_DEV.wismo_skus
-    where ORDERNUMBER equals the given order_number.
+    recursively creates a list of all the 
+    orders that match the order number, includes all the split orders
+    for which the function is run again until there are no more split
+    orders
     """
-    if original:
-        # Compose the full table reference safely
-        full_table = f"{DB}.{SCHEMA}.{'wismo_skus'}"
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE originalordernumber = {order_number}
-        """
 
-    else:
-        # Compose the full table reference safely
-        full_table = f"{DB}.{SCHEMA}.{'wismo_skus'}"
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE postsplitordernumber = {order_number}
-        """
-    df = pd.read_sql(sql, conn)
+    # create an empty list to hold OrderNumber objects
+    order_list = []
 
-    rows = [
-        {k: str(v) for k, v in row.items()}
-        for _, row in df.iterrows()
-    ]
+    # all order numbers might have multiple orders due to back order levels
+    # we will treat all backorder levels as separate orders
 
-    return rows
+    orders = get_orders(order_number, conn)
 
-def get_orders(order_number: str, original: bool, conn) -> list:
-    """
-    Fetch rows from DAGSTER_IO.DS_DEV.wismo_orders
-    where ORIGINALORDERNUMBER or POSTSPLITORDERNUMBER equals the given order_number.
-    """
-    full_table = f"{DB}.{SCHEMA}.{'wismo_orders'}"
-    if original:
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE ORIGINALORDERNUMBER = {order_number}
-        """
-    else:
-        sql = f"""
-            SELECT *
-            FROM {full_table}
-            WHERE POSTSPLITORDERNUMBER = {order_number}
-        """
-    df = pd.read_sql(sql, conn)
+    exists_in_original = check_in_original(order_number, conn)
 
-    if df.empty:
-        return []
+    # snowflake query to get all the skus under
+    skus = get_skus(order_number, conn)
+
+    # query snowflake to get all the cartons under the postsplitordernumber 
+    cartons = get_cartons(order_number, conn)
     
-    rows = [
-        {k: str(v) for k, v in row.items()}
-        for _, row in df.iterrows()
-    ]
-    return rows
+    # iterate through each order that appears under the postsplitordernumber
+    for order in orders:
 
-def run(order_number: str):
-    """
-    Return the row from DAGSTER_IO.DS_DEV.wismo_orders
-    where ORDERNUMBER equals the given order_number.
-    """
-    
+        sku_list = []
+        # for each order get all the skus that are for it
+        for sku in skus:
+            if sku['postsplitordernumber'] == order['postsplitordernumber'] and sku['ordersuffix'] == order['ordersuffix']:
+                pick_qty = None if sku["pickqty"] is None else int(float(sku["pickqty"]))
+                sku_list.append(
+                    Sku(
+                        orderNumber=int(sku["postsplitordernumber"]),
+                        orderSuffix=sku["ordersuffix"],
+                        sku=sku["sku"],
+                        pickQty=pick_qty
+                    )
+                )
+
+        # for each order
+        carton_list = []
+
+        # for each carton we add to list of cartons but only if it matches the 
+        for carton in cartons:
+            carton_sku_list = []
+            for sku in skus:
+                if sku['postsplitordernumber'] == carton["postsplitordernumber"] and sku["ordersuffix"] == carton["ordersuffix"]:
+                    pick_qty = None if sku["pickqty"] is None else int(float(sku["pickqty"]))
+                    carton_sku_list.append(
+                        Sku(
+                            orderNumber=sku["postsplitordernumber"],
+                            orderSuffix=sku["ordersuffix"],
+                            sku=sku["sku"],
+                            pickQty=pick_qty
+                        )
+                    )
+
+            if carton['postsplitordernumber'] == order['postsplitordernumber'] and carton['ordersuffix'] == order['ordersuffix']:
+                carton_list.append(
+                    Carton(
+                        orderNumber=carton["postsplitordernumber"],
+                        orderSuffix=carton['ordersuffix'],
+                        cartonId=carton["cartonid"],
+                        deliveryStatusDescription=carton["deliverystatusdescription"],
+                        actualDeliveryDate=carton["actualdeliverydate"],
+                        expectedDeliveryDate=carton["expecteddeliverydate"],
+                        carrierCode=carton["carriercode"],
+                        carrierDescription=carton["carrierdescription"],
+                        traceAndTraceLink=carton["trace_and_trace_link"],
+                        skus=carton_sku_list
+                    )
+                )
+
+        if exists_in_original:
+            # make snowflake query to query the original order column
+            split_orders = original_order_query(order_number, conn)
+            split_order_list = []
+            for order in split_orders:
+                split_order_list.extend(process_order_number(order['postsplitordernumber'], conn))
+        else:
+            split_order_list=None
+        
+        order_list.append(
+            OrderNumber(
+                orderNumber=order_number,
+                orderBookedDate=order['orderbookeddate'],
+                orderSuffix=order['ordersuffix'],
+                orderStatus=order['orderstatus'],  # Pydantic will validate this against OrderStatusType
+                orderContactFullName=order['ordercontactfullname'],
+                contactEmailAddress=order['contactemailaddress'],
+                contactPhone=order['contactphone'],
+                splitOrders=split_order_list,
+                skus=sku_list,
+                cartons=carton_list
+                ))
+        
+    return order_list
+
+def run(order_number, sf_engine = sf_engine):
     with sf_engine().connect() as conn:
-        exists_in_original_flag = exists_in_original(order_number, conn)
-        orders = get_orders(order_number, exists_in_original_flag, conn)
-        cartons = get_cartons(order_number, exists_in_original_flag, conn)
-        skus = get_skus(order_number, exists_in_original_flag, conn)
-    
-    email = generate_email(order_number, orders, cartons, skus, exists_in_original_flag)
-    
-    return {
-        "email": email,
-    }
+        order_data = process_order_number(order_number, conn)
+    return order_data
