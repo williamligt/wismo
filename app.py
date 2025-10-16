@@ -3,11 +3,11 @@
 # Please update the function name/signature per need
 import os
 import pandas as pd
-from helper import run
+from helper import run, run_get_products
 from fastapi import FastAPI, HTTPException
 import uvicorn
 from typing import List
-from custom_types import OrderNumber
+from custom_types import OrderNumber, ProductRequest, Product
 from connections import sf_engine
 from sqlalchemy import text
 from email_generator import generate_order_email
@@ -56,6 +56,15 @@ def get_email(order_number: str = Path(...,example='533212')):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/products/", response_model=List[Product])    
+def get_products(request: ProductRequest):
+    try:
+        return run_get_products(request.skus)
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 if __name__ == "__main__":

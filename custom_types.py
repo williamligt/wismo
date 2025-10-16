@@ -33,6 +33,14 @@ class OrderNumber(BaseModel):
     skus: Optional[List['Sku']] = Field(description="this is the skus associated with this order, not including its split orders")
     cartons: Optional[List['Carton']] = Field(description="this is the cartons associated with this order, cartons are the units that we deliver in, each carton is delivered as a separate entity")
 
+class ProductRequest(BaseModel):
+    skus: List[str]
+
+class Product(BaseModel):
+    sku : str
+    hfaDescription : str
+    manufacturerName : str
+
 
 # Rebuild models to resolve forward references
 OrderNumber.model_rebuild()

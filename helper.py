@@ -2,7 +2,7 @@
 from typing import Tuple
 from connections import DB, SCHEMA, sf_engine
 import pandas as pd
-from custom_types import OrderNumber, Carton, Sku
+from custom_types import OrderNumber, Carton, Sku, Product
 
 def process_none(value):
     if value == "None":
@@ -108,6 +108,55 @@ def get_cartons(order_number: str, conn) -> list:
 
     return rows
 
+def get_products(skus: list, conn) -> list:
+    """
+    Get the products from DAGSTER_IO.DS_DEV.WISMO_PRODUCTS
+    where skus is a list of the skus.
+    """
+    
+    if not skus:
+        return []
+    
+    # Compose the full table reference safely
+    full_table = f"{DB}.{SCHEMA}.{'wismo_products'}"
+    
+    # Create placeholders for the IN clause
+    sku_list ="'" +  "','".join(skus) + "'"
+    sql = f"""
+        SELECT *
+        FROM {full_table}
+        WHERE PROD_SKU IN ({sku_list})
+    """
+    
+    try:
+        df = pd.read_sql(sql, conn)
+        print(f"Query executed successfully. Rows returned: {len(df)}")
+        print(f"DataFrame: {df}")
+    except Exception as e:
+        print(f"Error executing query: {e}")
+        return []
+    
+    products = []
+
+    rows = [
+        {k: process_none(v) for k, v in row.items()}
+        for _, row in df.iterrows()
+    ]
+
+    for item in rows:
+        product = Product(
+            sku=item.get("prod_sku"),
+            hfaDescription=item.get("prod_hfadescription1"),
+            manufacturerName=item.get("prod_manufacturername")
+        )
+
+        products.append(product)
+    
+
+    return products
+
+
+
 def process_order_number(order_number: int, conn) -> list:
     """
     recursively creates a list of all the 
@@ -212,3 +261,12 @@ def run(order_number, sf_engine = sf_engine):
     with sf_engine().connect() as conn:
         order_data = process_order_number(order_number, conn)
     return order_data
+
+def run_get_products(skus: list, sf_engine = sf_engine):
+    try:
+        with sf_engine().connect() as conn:
+            product_data = get_products(skus, conn)
+        return {"products": product_data}
+    except Exception as e:
+        print(f"Error in run_get_products: {e}")
+        return {"products": [], "error": str(e)}
