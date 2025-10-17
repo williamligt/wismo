@@ -267,7 +267,7 @@ def run_get_products(skus: list, sf_engine = sf_engine):
     try:
         with sf_engine().connect() as conn:
             product_data = get_products(skus, conn)
-        return {"products": product_data}
+        return product_data
     except Exception as e:
         print(f"Error in run_get_products: {e}")
-        return {"products": [], "error": str(e)}
+        raise Exception(f"Failed to get products: {str(e)}")
