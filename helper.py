@@ -5,7 +5,8 @@ import pandas as pd
 from custom_types import OrderNumber, Carton, Sku, Product
 
 def process_none(value):
-    if value == "None":
+    import pandas as pd
+    if value == "None" or pd.isna(value):
         return None
     else:
         return value
