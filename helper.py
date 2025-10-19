@@ -3,6 +3,9 @@ from typing import Tuple
 from connections import DB, SCHEMA, sf_engine
 import pandas as pd
 from custom_types import OrderNumber, Carton, Sku, Product
+from cache import TTLCache
+
+order_cache = TTLCache(ttl_hours=1)
 
 def process_none(value):
     import pandas as pd
@@ -165,6 +168,15 @@ def process_order_number(order_number: int, conn) -> list:
     for which the function is run again until there are no more split
     orders
     """
+    # Check cache first
+    cache_key = f"order_{order_number}"
+    cached_result = order_cache.get(cache_key)
+    if cached_result is not None:
+        print(f"Cache hit for order {order_number}")
+        return cached_result
+    
+    print(f"Cache miss for order {order_number} - querying database")
+
 
     # create an empty list to hold OrderNumber objects
     order_list = []
@@ -255,7 +267,8 @@ def process_order_number(order_number: int, conn) -> list:
                 skus=sku_list,
                 cartons=carton_list
                 ))
-        
+    # Cache the result
+    order_cache.set(cache_key, order_list)    
     return order_list
 
 def run(order_number, sf_engine = sf_engine):
