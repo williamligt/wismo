@@ -3,6 +3,7 @@ from typing import Tuple
 from connections import DB, SCHEMA, sf_engine
 import pandas as pd
 from custom_types import OrderNumber, Carton, Sku, Product
+from constants import status_map
 from cache import TTLCache
 
 order_cache = TTLCache(ttl_hours=1)
@@ -259,7 +260,7 @@ def process_order_number(order_number: int, conn) -> list:
                 orderNumber=order_number,
                 orderBookedDate=order['orderbookeddate'],
                 orderSuffix=order['ordersuffix'],
-                orderStatus=order['orderstatus'],  # Pydantic will validate this against OrderStatusType
+                orderStatus=status_map.get(order['orderstatus'], order['orderstatus']),  # Map the status using status_map
                 orderContactFullName=order['ordercontactfullname'],
                 contactEmailAddress=order['contactemailaddress'],
                 contactPhone=order['contactphone'],

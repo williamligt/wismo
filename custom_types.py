@@ -25,7 +25,7 @@ class OrderNumber(BaseModel):
     orderNumber: int = Field(description="The main order number")
     orderBookedDate: datetime = Field(description="The date the order was booked")
     orderSuffix: int = Field(description='this is the backorder level, a order number might have multiple backorder levels this is when we have some of the items in stock and some not so the ones that are not in stock are moved to a higher back order level to be delivered later')
-    orderStatus: OrderStatusType = Field(description="Status of the order")
+    orderStatus: str = Field(description="Status of the order")
     orderContactFullName: str 
     contactEmailAddress: str
     contactPhone: int
