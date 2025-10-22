@@ -29,6 +29,8 @@ class OrderNumber(BaseModel):
     orderContactFullName: str 
     contactEmailAddress: str
     contactPhone: int
+    shipTo: int
+    shipToName: str
     splitOrders: Optional[List['OrderNumber']] = Field(description="This is the list of all the orders that this order has been split into. When an order splits into other orders it is commonly because we don't have it and it is being fufilled by someone else. Some of the items go to the split order and some remain in the original")
     skus: Optional[List['Sku']] = Field(description="this is the skus associated with this order, not including its split orders")
     cartons: Optional[List['Carton']] = Field(description="this is the cartons associated with this order, cartons are the units that we deliver in, each carton is delivered as a separate entity")

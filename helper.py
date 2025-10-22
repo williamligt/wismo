@@ -263,6 +263,8 @@ def process_order_number(order_number: int, conn) -> list:
                 orderContactFullName=order['ordercontactfullname'],
                 contactEmailAddress=order['contactemailaddress'],
                 contactPhone=order['contactphone'],
+                shipTo=order['shipto'],
+                shipToName=order['shiptoname'],
                 splitOrders=split_order_list,
                 skus=sku_list,
                 cartons=carton_list
