@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-pandas
-snowflake-connector-python
-snowflake-sqlalchemy
-sqlalchemy
-pydantic
-python-dotenv
