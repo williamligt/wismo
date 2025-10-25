@@ -1,7 +1,7 @@
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
-from constants import OrderStatusType, DeliveryStatusType
+from utils.constants import DeliveryStatusType
 
 class Sku(BaseModel):
     orderNumber: int

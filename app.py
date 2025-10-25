@@ -3,14 +3,14 @@
 # Please update the function name/signature per need
 import os
 import pandas as pd
-from helper import run, run_get_products
+from utils.helper import run, run_get_products
 from fastapi import FastAPI, HTTPException
 import uvicorn
 from typing import List
-from custom_types import OrderNumber, ProductRequest, Product
-from connections import sf_engine
+from utils.custom_types import OrderNumber, ProductRequest, Product
+from utils.connections import sf_engine
 from sqlalchemy import text
-from email_generator import generate_order_email
+from utils.email_generator import generate_order_email
 from fastapi import Path
 
 app = FastAPI(
@@ -64,7 +64,6 @@ def get_products(request: ProductRequest):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 if __name__ == "__main__":
